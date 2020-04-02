@@ -1,0 +1,6 @@
+requests >= 2.23.0
+numpy >= 1.18.2
+torch >= 1.4.0
+flask >= 1.1.1
+spacy >= 2.2.4
+transformers >=  2.7.0

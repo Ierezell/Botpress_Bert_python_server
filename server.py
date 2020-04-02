@@ -21,7 +21,7 @@ app = Flask(__name__)
 
 @app.route('/tokenize',  methods=['POST'])
 def tokenize():
-    print(request.text())
+    print(request.text)
 
     sentence = request.json["sentence"]
 
