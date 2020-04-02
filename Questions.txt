@@ -1,0 +1,2 @@
+Le tokenizer doit etre langage dependant ? 
+Les embeddings sortent > 100 t-sne ? truncate ? 
