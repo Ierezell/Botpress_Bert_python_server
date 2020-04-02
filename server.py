@@ -7,7 +7,7 @@ from spacy.tokenizer import Tokenizer
 from transformers import (DistilBertConfig, DistilBertModel,
                           DistilBertTokenizerFast, FeatureExtractionPipeline)
 from torch import nn
-adaptive_pool = nn.AdaptiveAvgPool1d(100)
+adaptive_pool = nn.AdaptiveAvgPool1d(300)
 nlp = French()
 tokenizer = nlp.Defaults.create_tokenizer(nlp)
 
@@ -64,9 +64,12 @@ def vectorize():
     return jsonify(embeddings)
 
 
-@app.route('/embedsentence',  methods=['POST'])
-def embedsentence():
+@app.route('/vectorize_utterances',  methods=['POST'])
+def vectorize_utterances():
     utterances = request.json["utterances"]
+    # print("\n\n\n\n", utterances, "\n\n\n")
+    # import pdb
+    # pdb.set_trace()
     input_tensor = dbt.batch_encode_plus(utterances, pad_to_max_length=True,
                                          return_tensors="pt")
 
@@ -76,7 +79,7 @@ def embedsentence():
     outputs = adaptive_pool(outputs[0])
     embedding = torch.sum(outputs, axis=1)
     embeddings = embedding.squeeze().cpu().data.numpy().tolist()
-    return jsonify(embedding)
+    return jsonify({"vectors": embeddings})
 
 
 @app.route('/info',  methods=['GET'])
@@ -84,7 +87,7 @@ def info():
     infos = {
         "version": "1",
         "ready": True,
-        "dimentions": 100,
+        "dimentions": 300,
         "domain": "bp",
         "readOnly": True,
         "languages": [
