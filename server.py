@@ -78,7 +78,7 @@ def vectorize_utterances():
 
     outputs = adaptive_pool(outputs[0])
     embedding = torch.sum(outputs, axis=1)
-    embeddings = embedding.squeeze().cpu().data.numpy().tolist()
+    embeddings = embedding.cpu().data.numpy().tolist()
     return jsonify({"vectors": embeddings})
 
 
@@ -91,18 +91,10 @@ def info():
         "domain": "bp",
         "readOnly": True,
         "languages": [
-            {"lang": "ar", "loaded": True},
-            {"lang": "de", "loaded": True},
             {"lang": "en", "loaded": True},
-            {"lang": "es", "loaded": True},
-            {"lang": "fr", "loaded": True},
-            {"lang": "he", "loaded": True},
-            {"lang": "it", "loaded": True},
-            {"lang": "ja", "loaded": True},
-            {"lang": "nl", "loaded": True},
-            {"lang": "pl", "loaded": True},
-            {"lang": "pt", "loaded": True},
-            {"lang": "ru", "loaded": True}
         ]
     }
     return jsonify(infos)
+
+if (__name__ == '__main__'):
+    app.run(debug=True)
