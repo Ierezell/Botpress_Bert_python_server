@@ -18,6 +18,7 @@ tokenizer = nlp.Defaults.create_tokenizer(nlp)
 bc = BertConfig(output_hidden_states=True)
 # db = BertModel.from_pretrained("bert-base-multilingual-cased")
 bert = BertModel.from_pretrained("bert-base-uncased")
+bert = bert.eval()
 bert_tok = BertTokenizer.from_pretrained("bert-base-uncased")
 # bert_tok = BertTokenizer("./bert-base-uncased-vocab.txt")
 # dbt = BertTokenizerFast("./bert-base-multilingual-cased-vocab.txt")
@@ -52,18 +53,20 @@ def tokenize():
 @app.route('/vectorize',  methods=['POST'])
 def vectorize():
     tokens = request.json["tokens"]
+    print(len(tokens))
     embeddings = []
-    for tok in tokens:
-        encoded = bert_tok.encode(tok, return_tensors="pt")
-        out_tensor, hidden = bert(encoded)
+    with torch.no_grad():
+        for tok in tokens:
+            encoded = bert_tok.encode(tok, return_tensors="pt")
+            out_tensor, hidden = bert(encoded)
 
-        out_tensor = adaptive_pool(out_tensor)
-        hidden = adaptive_pool(hidden.unsqueeze(0))
+            out_tensor = adaptive_pool(out_tensor)
+            hidden = adaptive_pool(hidden.unsqueeze(0))
 
-        out_tensor = torch.sum(out_tensor, axis=1).squeeze()
-        hidden = hidden.squeeze()
+            out_tensor = torch.sum(out_tensor, axis=1).squeeze()
+            hidden = hidden.squeeze()
 
-        embeddings.append(hidden.cpu().data.numpy().tolist())
+            embeddings.append(hidden.detach().cpu().data.numpy().tolist())
 
     # input_tensor = bert_tok.batch_encode_plus(tokens, pad_to_max_length=True,
     #                                           return_tensors="pt")
@@ -79,17 +82,19 @@ def vectorize():
 @app.route('/vectorize_utterances',  methods=['POST'])
 def vectorize_utterances():
     utterances = request.json["utterances"]
-    input_tensor = bert_tok.batch_encode_plus(utterances,
-                                              pad_to_max_length=True,
-                                              return_tensors="pt")
+    print(len(utterances))
+    with torch.no_grad():
+        input_tensor = bert_tok.batch_encode_plus(utterances,
+                                                  pad_to_max_length=True,
+                                                  return_tensors="pt")
 
-    outputs, hidden = bert(input_tensor["input_ids"],
-                           input_tensor["attention_mask"])
+        outputs, hidden = bert(input_tensor["input_ids"],
+                               input_tensor["attention_mask"])
 
-    # outputs = adaptive_pool(outputs[0])
-    # embedding = torch.sum(outputs, axis=1)
-    embedding = adaptive_pool(hidden.unsqueeze(0))
-    embeddings = embedding.squeeze().cpu().data.numpy().tolist()
+        # outputs = adaptive_pool(outputs[0])
+        # embedding = torch.sum(outputs, axis=1)
+        embedding = adaptive_pool(hidden.unsqueeze(0))
+        embeddings = embedding.detach().squeeze().cpu().data.numpy().tolist()
     return jsonify({"vectors": embeddings})
 
 
