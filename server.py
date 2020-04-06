@@ -1,31 +1,33 @@
 import json
+import pdb
 
 import torch
 from flask import Flask, jsonify, request
-from spacy.lang.fr import French
+from spacy.lang.en import English
 from spacy.tokenizer import Tokenizer
-from transformers import (DistilBertConfig, DistilBertModel,
-                          DistilBertTokenizerFast, FeatureExtractionPipeline)
 from torch import nn
-adaptive_pool = nn.AdaptiveAvgPool1d(300)
-nlp = French()
+from transformers import (BertConfig, BertModel, BertTokenizer,
+                          BertTokenizerFast, DistilBertConfig, DistilBertModel,
+                          DistilBertTokenizerFast, FeatureExtractionPipeline)
+
+adaptive_pool = nn.AdaptiveAvgPool1d(100)
+
+nlp = English()
 tokenizer = nlp.Defaults.create_tokenizer(nlp)
 
-dc = DistilBertConfig(output_hidden_states=True)
-db = DistilBertModel.from_pretrained("distilbert-base-multilingual-cased")
-dbt = DistilBertTokenizerFast("./bert-base-multilingual-cased-vocab.txt")
-senteceembedder = FeatureExtractionPipeline(db, dbt)
+bc = BertConfig(output_hidden_states=True)
+# db = BertModel.from_pretrained("bert-base-multilingual-cased")
+bert = BertModel.from_pretrained("bert-base-uncased")
+bert_tok = BertTokenizer.from_pretrained("bert-base-uncased")
+# bert_tok = BertTokenizer("./bert-base-uncased-vocab.txt")
+# dbt = BertTokenizerFast("./bert-base-multilingual-cased-vocab.txt")
+# senteceembedder = FeatureExtractionPipeline(db, dbt)
 
 app = Flask(__name__)
 
 
 @app.route('/tokenize',  methods=['POST'])
 def tokenize():
-    print("\n\n\n\n\n", request.json, "\n\n\n\n")
-    import pdb
-    pdb.set_trace()
-    return None
-
     utterances = request.json["utterances"]
 
     tokenized = []
@@ -35,7 +37,7 @@ def tokenize():
 
         # ### Approche avec distilBert
         tokens = []
-        for t in dbt.tokenize(sentence):
+        for t in bert_tok.tokenize(sentence):
             if t.startswith("##"):
                 if tokens:
                     tokens[-1] += t[2:]
@@ -49,36 +51,45 @@ def tokenize():
 
 @app.route('/vectorize',  methods=['POST'])
 def vectorize():
-    # print("\n\n\n\n\n", request.json, "\n\n\n\n")
-    # import pdb
-    # pdb.set_trace()
     tokens = request.json["tokens"]
-    input_tensor = dbt.batch_encode_plus(tokens, pad_to_max_length=True,
-                                         return_tensors="pt")
+    embeddings = []
+    for tok in tokens:
+        encoded = bert_tok.encode(tok, return_tensors="pt")
+        out_tensor, hidden = bert(encoded)
 
-    outputs = db(input_tensor["input_ids"],
-                 input_tensor["attention_mask"])
+        out_tensor = adaptive_pool(out_tensor)
+        hidden = adaptive_pool(hidden.unsqueeze(0))
 
-    outputs = adaptive_pool(outputs[0])
-    embeddings = outputs.squeeze().cpu().data.numpy().tolist()
-    return jsonify(embeddings)
+        out_tensor = torch.sum(out_tensor, axis=1).squeeze()
+        hidden = hidden.squeeze()
+
+        embeddings.append(hidden.cpu().data.numpy().tolist())
+
+    # input_tensor = bert_tok.batch_encode_plus(tokens, pad_to_max_length=True,
+    #                                           return_tensors="pt")
+    # outputs = bert(input_tensor["input_ids"],
+    #                input_tensor["attention_mask"])
+    # outputs = adaptive_pool(outputs[0])
+    # outputs = outputs[0]
+    # embeddings = outputs.squeeze().cpu().data.numpy().tolist()
+
+    return jsonify({"vectors": embeddings})
 
 
 @app.route('/vectorize_utterances',  methods=['POST'])
 def vectorize_utterances():
     utterances = request.json["utterances"]
-    # print("\n\n\n\n", utterances, "\n\n\n")
-    # import pdb
-    # pdb.set_trace()
-    input_tensor = dbt.batch_encode_plus(utterances, pad_to_max_length=True,
-                                         return_tensors="pt")
+    input_tensor = bert_tok.batch_encode_plus(utterances,
+                                              pad_to_max_length=True,
+                                              return_tensors="pt")
 
-    outputs = db(input_tensor["input_ids"],
-                 input_tensor["attention_mask"])
+    outputs, hidden = bert(input_tensor["input_ids"],
+                           input_tensor["attention_mask"])
 
-    outputs = adaptive_pool(outputs[0])
-    embedding = torch.sum(outputs, axis=1)
-    embeddings = embedding.cpu().data.numpy().tolist()
+    # outputs = adaptive_pool(outputs[0])
+    # embedding = torch.sum(outputs, axis=1)
+    embedding = adaptive_pool(hidden.unsqueeze(0))
+    embeddings = embedding.squeeze().cpu().data.numpy().tolist()
     return jsonify({"vectors": embeddings})
 
 
@@ -87,7 +98,8 @@ def info():
     infos = {
         "version": "1",
         "ready": True,
-        "dimentions": 300,
+        # "dimentions": 768,
+        "dimentions": 100,
         "domain": "bp",
         "readOnly": True,
         "languages": [
@@ -95,6 +107,7 @@ def info():
         ]
     }
     return jsonify(infos)
+
 
 if (__name__ == '__main__'):
     app.run(debug=True)
