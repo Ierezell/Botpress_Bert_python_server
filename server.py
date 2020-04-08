@@ -37,7 +37,7 @@ def vectorize():
     tokens = request.json["tokens"]
 
     embeddings = []
-
+    # print("Call")
     for m in tokens:
         mot = Sentence(m)
         embedder.embed(mot)
@@ -68,7 +68,7 @@ def info():
 
 
 if (__name__ == '__main__'):
-    app.run(debug=True)
+    app.run(debug=True, threaded=True)
 
 
 # @app.route('/vectorize',  methods=['POST'])
